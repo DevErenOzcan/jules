@@ -1,5 +1,11 @@
-"""
-gRPC servis bağlantılarını yöneten modül
+"""!
+@file service_client.py
+@brief Manages gRPC client connections to other microservices.
+
+This module defines the ServiceClient class, which is responsible for
+creating and managing gRPC stubs (clients) for communicating with
+external services like EmotionService and SpeechDetectionService.
+It supports sending requests both synchronously and asynchronously.
 """
 
 import grpc
@@ -12,14 +18,21 @@ logger = setup_logger()
 
 
 class ServiceClient:
-    """gRPC servis bağlantılarını yöneten sınıf"""
+    """!
+    @brief Manages gRPC client connections to other microservices.
+
+    This class initializes and holds gRPC stubs for external services
+    based on the provided GrpcConfig. It offers methods to send requests
+    to these services, including an asynchronous option for processing
+    detected faces.
+    """
     
     def __init__(self, config):
-        """
-        ServiceClient'ı başlatır
+        """!
+        @brief Initializes the ServiceClient.
         
-        Args:
-            config: GrpcConfig nesnesi
+        @param config A GrpcConfig object containing the addresses and options
+                      for external gRPC services.
         """
         self.config = config
         self.emotion_stub = None
@@ -29,7 +42,14 @@ class ServiceClient:
         self._create_service_stubs()
     
     def _create_service_stubs(self):
-        """Diğer servislere bağlantı için stub'ları oluşturur"""
+        """!
+        @brief Creates gRPC stubs for connecting to other services.
+        @internal
+
+        Initializes `emotion_stub` and `speech_stub` for communication
+        with EmotionService and SpeechDetectionService respectively, using
+        addresses and options from the GrpcConfig.
+        """
         try:
             # Emotion Service'e bağlantı
             emotion_channel = grpc.insecure_channel(
@@ -54,7 +74,12 @@ class ServiceClient:
             self.speech_stub = None
     
     def send_to_emotion_service(self, face_request):
-        """Emotion Service'e istek gönderir"""
+        """!
+        @brief Sends a FaceRequest to the Emotion Service.
+
+        @param face_request A vision_pb2.FaceRequest protobuf message.
+        @return The response from EmotionService (vision_pb2.EmotionResponse) or None on failure.
+        """
         try:
             if self.emotion_stub:
                 logger.info(f"Emotion Service'e istek gönderiliyor (Yüz ID: {face_request.face_id})")
@@ -66,7 +91,12 @@ class ServiceClient:
             return None
     
     def send_to_speech_service(self, face_request):
-        """Speech Detection Service'e istek gönderir"""
+        """!
+        @brief Sends a FaceRequest to the Speech Detection Service.
+
+        @param face_request A vision_pb2.FaceRequest protobuf message.
+        @return The response from SpeechDetectionService (vision_pb2.SpeechResponse) or None on failure.
+        """
         try:
             if self.speech_stub:
                 logger.info(f"Speech Detection Service'e istek gönderiliyor (Yüz ID: {face_request.face_id})")
@@ -78,7 +108,15 @@ class ServiceClient:
             return None
     
     def process_detected_face_async(self, face_request):
-        """Tespit edilen yüzü asenkron olarak diğer servislere gönderir"""
+        """!
+        @brief Asynchronously sends a FaceRequest to both Emotion and Speech services.
+
+        This method spawns new threads to send requests to the EmotionService
+        and SpeechDetectionService concurrently.
+
+        @param face_request A vision_pb2.FaceRequest protobuf message containing
+                            the face image, ID, and landmarks.
+        """
         
         # Duygu analizi için isteği gönder
         try:

@@ -1,8 +1,11 @@
 """
-Duygu Analizi Servisi - gRPC Servis Implementasyonu
--------------------------------------------------
-Bu modül, gRPC servis implementasyonunu içerir ve yüz görüntülerinden
-duygu analizi yapmak için EmotionAnalyzer sınıfını kullanır.
+"""!
+@file service.py
+@brief Implements the gRPC servicer for the Emotion Analysis Service.
+
+This module defines the `EmotionServiceServicer` class, which handles
+incoming gRPC requests for emotion analysis. It utilizes the `EmotionAnalyzer`
+class to process facial images and determine emotions.
 """
 import cv2
 import numpy as np
@@ -31,33 +34,40 @@ except ImportError:
 logger = logging.getLogger("emotion-service")
 
 class EmotionServiceServicer(vision_pb2_grpc.EmotionServiceServicer):
-    """
-    Duygu analizi gRPC servisi. 
+    """!
+    @brief Implements the EmotionService gRPC servicer.
     
-    Bu servis, yüz görüntülerini alıp duygu analizi yapar ve sonuçları döndürür.
-    EmotionAnalyzer sınıfını kullanarak görüntüleri işler ve duygu durumlarını tespit eder.
+    This class handles requests from the Vision Service (or other clients)
+    to analyze emotions from face images. It uses an instance of `EmotionAnalyzer`
+    to perform the actual analysis.
     """
     
     def __init__(self, confidence_threshold: float = 0.35):
-        """
-        Emotion Service sınıfını başlatır
+        """!
+        @brief Initializes the EmotionServiceServicer.
         
-        Args:
-            confidence_threshold: Duygu tespitinde kullanılacak minimum güven eşiği (0.0-1.0 arası)
+        @param confidence_threshold The minimum confidence threshold to be used by the
+                                   underlying `EmotionAnalyzer`. Defaults to 0.35.
         """
         self.emotion_analyzer = EmotionAnalyzer(confidence_threshold=confidence_threshold)
         logger.info("Geliştirilmiş Emotion Service başlatıldı (Güven eşiği: %.2f)", confidence_threshold)
         
-    def AnalyzeEmotion(self, request, context):
-        """
-        Vision Service'den gelen yüz görüntüsünü analiz edip duygu durumunu belirler
+    def AnalyzeEmotion(self, request: vision_pb2.FaceRequest, context: grpc.ServicerContext) -> vision_pb2.EmotionResponse:
+        """!
+        @brief Analyzes a face image to determine emotion.
+
+        This method is called by gRPC clients. It decodes the face image from
+        the request, uses `EmotionAnalyzer` to predict the emotion, and returns
+        the result.
         
-        Args:
-            request: gRPC istek nesnesi (FaceRequest)
-            context: gRPC bağlam nesnesi
+        @param request The incoming gRPC request object (vision_pb2.FaceRequest),
+                       containing the `face_image` (bytes) and `face_id` (str).
+        @param context The gRPC context object for the request.
             
-        Returns:
-            vision_pb2.EmotionResponse: Tespit edilen duygu durumu, güven skoru ve yüz ID bilgisi
+        @return vision_pb2.EmotionResponse: A protobuf message containing the predicted
+                                          `emotion` (str), `confidence` (float), and
+                                          the original `face_id` (str). Returns an "error"
+                                          emotion on processing failure.
         """
         # İstek sayacını artır
         if has_request_counter:

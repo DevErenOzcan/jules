@@ -1,5 +1,11 @@
-"""
-Uygulama yapılandırma değerlerini yöneten modül
+"""!
+@file config_manager.py
+@brief Manages application configuration values for the Vision Service.
+
+This module defines the ConfigManager class, which is responsible for
+loading and providing access to various configuration settings from
+environment variables or default values. These settings include paths for
+models, thresholds for face detection, logging configurations, and debug flags.
 """
 
 import os
@@ -10,15 +16,35 @@ logger = setup_logger()
 
 
 class ConfigManager:
-    """Uygulama yapılandırma değerlerini yöneten sınıf"""
+    """!
+    @brief Manages application configuration values.
+
+    This class loads configuration settings from environment variables
+    upon initialization and provides them as attributes. It also offers
+    properties to get specific configuration dictionaries for different
+    components like FaceDetector and FaceTracker, and a summary method.
+    """
     
     def __init__(self):
-        """ConfigManager'ı başlatır ve tüm yapılandırma değerlerini yükler"""
+        """!
+        @brief Initializes the ConfigManager and loads all configuration values.
+
+        Calls the internal _load_configuration method to populate instance
+        attributes with values derived from environment variables or defaults.
+        """
         self._load_configuration()
         logger.info("Yapılandırma değerleri yüklendi")
     
     def _load_configuration(self):
-        """Environment değişkenlerinden yapılandırma değerlerini yükler"""
+        """!
+        @brief Loads configuration values from environment variables.
+        @internal
+
+        This method reads various settings like face detection thresholds,
+        model paths, logging level, and debug flags from environment
+        variables. If an environment variable is not set, it uses a
+        predefined default value.
+        """
         
         # Yüz tespit yapılandırmaları
         self.face_match_threshold = float(os.getenv('FACE_MATCH_THRESHOLD', '0.4'))
@@ -42,7 +68,10 @@ class ConfigManager:
     
     @property
     def face_detector_config(self):
-        """FaceDetector için yapılandırma döner"""
+        """!
+        @brief Provides configuration specific to the FaceDetector.
+        @return A dictionary containing 'cascade_path' and 'model_path'.
+        """
         return {
             'cascade_path': self.cascade_path,
             'model_path': self.model_path
@@ -50,14 +79,20 @@ class ConfigManager:
     
     @property
     def face_tracker_config(self):
-        """FaceTracker için yapılandırma döner"""
+        """!
+        @brief Provides configuration specific to the FaceTracker.
+        @return A dictionary containing 'similarity_threshold' and 'cleanup_timeout'.
+        """
         return {
             'similarity_threshold': self.face_match_threshold,
             'cleanup_timeout': self.face_cleanup_timeout
         }
     
     def get_config_summary(self):
-        """Yapılandırma özetini döner"""
+        """!
+        @brief Returns a summary of the current configuration.
+        @return A dictionary containing key configuration values.
+        """
         return {
             'face_match_threshold': self.face_match_threshold,
             'face_cleanup_timeout': self.face_cleanup_timeout,

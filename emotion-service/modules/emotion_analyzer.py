@@ -9,14 +9,38 @@ from deepface import DeepFace
 # Logging yapılandırma
 logger = logging.getLogger("emotion-analyzer")
 
+"""!
+@file emotion_analyzer.py
+@brief Defines the EmotionAnalyzer class for advanced emotion detection from face images.
+
+This module contains the EmotionAnalyzer class, which uses the DeepFace library
+along with custom preprocessing, regional analysis, calibration, and temporal
+smoothing techniques to predict emotions from facial images.
+"""
+
 class EmotionAnalyzer:
-    """Duygu analizi için geliştirilmiş sınıf"""
+    """!
+    @brief Performs advanced emotion analysis on facial images.
+
+    This class integrates DeepFace for core emotion recognition and enhances it
+    with several custom mechanisms:
+    - Image preprocessing (resizing, grayscale, CLAHE, denoising, normalization).
+    - Analysis of specific facial regions to refine emotion scores.
+    - Calibration of emotion scores based on predefined thresholds, boosts, and priorities.
+    - Temporal smoothing using emotion history and cooldown periods to stabilize predictions.
+    - Handling of emotion similarity to resolve ambiguities between related emotions.
+    """
     
     def __init__(self, confidence_threshold=0.30):
-        """
-        Emotion Analyzer sınıfını başlatır
-        Args:
-            confidence_threshold: Duygu tespiti için minimum güven skoru
+        """!
+        @brief Initializes the EmotionAnalyzer.
+
+        Sets up confidence thresholds, calibration parameters, similarity matrices,
+        history tracking, and a thread lock for DeepFace analysis.
+
+        @param confidence_threshold The minimum confidence score from DeepFace to consider
+                                   an emotion as potentially valid before further calibration
+                                   and stability checks. Defaults to 0.30.
         """
         self.emotion_confidence_threshold = confidence_threshold
         self.emotion_lock = threading.Lock()  # Thread güvenliği için
@@ -82,12 +106,21 @@ class EmotionAnalyzer:
         logger.info("Geliştirilmiş duygu analizi modülü başlatıldı")
         
     def preprocess_face(self, face_img):
-        """
-        Duygu analizi için yüz görüntüsünü ön işle
-        Args:
-            face_img: Orijinal yüz görüntüsü
-        Returns:
-            İşlenmiş yüz görüntüsü
+        """!
+        @brief Preprocesses a face image for emotion analysis.
+
+        The preprocessing steps include:
+        - Resizing to 64x64 pixels.
+        - Conversion to grayscale.
+        - Applying Contrast Limited Adaptive Histogram Equalization (CLAHE).
+        - Gaussian blur for denoising.
+        - Histogram equalization.
+        - Normalization to 0-255 range.
+        - Conversion back to BGR format.
+
+        @param face_img The original face image (NumPy array in BGR format).
+        @return NumPy array: The processed face image, or the original image if preprocessing fails.
+                            Returns None if the input image is None or empty.
         """
         try:
             if face_img is None or face_img.size == 0:
@@ -115,12 +148,17 @@ class EmotionAnalyzer:
             return face_img
 
     def analyze_face_regions(self, face_img):
-        """
-        Yüzün farklı bölgelerini analiz ederek duygu tespitini iyileştirir
-        Args:
-            face_img: İşlenmiş yüz görüntüsü
-        Returns:
-            Bölgesel analiz skorları
+        """!
+        @brief Analyzes specific regions of a face image to derive emotion-related scores.
+        @internal
+
+        This method calculates scores for predefined facial regions associated with
+        different emotions. Scores are based on edge density and histogram standard deviation
+        within these regions.
+
+        @param face_img The preprocessed face image (NumPy array).
+        @return A dictionary mapping emotion strings to their calculated regional scores.
+                Returns an empty dictionary if the input image is None or empty.
         """
         if face_img is None or face_img.size == 0:
             return {}
@@ -147,13 +185,23 @@ class EmotionAnalyzer:
         return region_scores
 
     def analyze_emotion(self, face_img, face_id=None):
-        """
-        Gelişmiş duygu analizi - bölgesel ve zamansal özelliklerle
-        Args:
-            face_img: İşlenmiş yüz görüntüsü
-            face_id:   Yüz kimliği (geçmiş duygular için)
-        Returns:
-            {"emotion": str, "confidence": float}
+        """!
+        @brief Performs comprehensive emotion analysis on a face image.
+
+        This is the main public method for emotion analysis. It combines DeepFace
+        analysis with regional scoring, advanced calibration, and temporal stability
+        checks to determine the most likely emotion and its confidence.
+
+        @param face_img The face image (NumPy array, BGR format) to analyze.
+                        It's recommended to pass a preprocessed image, though this
+                        method can handle raw images (which might be less accurate).
+        @param face_id An optional identifier for the face, used for temporal analysis
+                       and stability. If provided, allows tracking emotion history for this face.
+        @return A dictionary `{"emotion": str, "confidence": float}`.
+                'emotion' is the predicted emotion string (e.g., "happy", "sad", "uncertain").
+                'confidence' is the confidence score (0.0 to 1.0) for the prediction.
+                Returns `{"emotion":"unknown", "confidence":0.0}` if the image is invalid,
+                or `{"emotion":"neutral", "confidence":0.5}` on DeepFace analysis error.
         """
         try:
             if face_img is None or face_img.size == 0:
@@ -228,17 +276,19 @@ class EmotionAnalyzer:
     def get_emotion_name(self, key):
         return key
 
-    # ... (Diğer metodlar: _advanced_calibrate_emotions, _update_temporal_scores,
     #     _get_stable_emotion, _advanced_emotion_stability aynı kalacak)
 
             
     def get_emotion_name(self, emotion_key):
-        """
-        Duygu anahtarını döndürür (istenirse Türkçe karşılığını kullanabilir)
-        Args:
-            emotion_key: Duygu kodu (angry, happy, vb.)
-        Returns:
-            Duygu adı (varsayılan olarak İngilizce)
+        """!
+        @brief Returns the string representation for an emotion key.
+
+        Currently, this method returns the English emotion key. It is designed
+        to potentially map keys to other languages (e.g., Turkish via `self.emotion_tr`)
+        if needed in the future.
+
+        @param emotion_key The internal emotion identifier string (e.g., "happy", "sad").
+        @return The display name for the emotion (currently the same as `emotion_key`).
         """
         # Türkçe duygu isimlerini kullanmak için:
         # return self.emotion_tr.get(emotion_key, emotion_key)
@@ -247,13 +297,19 @@ class EmotionAnalyzer:
         return emotion_key
             
     def _advanced_calibrate_emotions(self, emotion_scores, face_id=None):
-        """
-        Geliştirilmiş duygu skoru kalibrasyonu - zamansal ve benzerlik bazlı
-        Args:
-            emotion_scores: Orijinal duygu skorları
-            face_id: Yüz kimliği (varsa)
-        Returns:
-            Kalibre edilmiş duygu skorları
+        """!
+        @brief Performs advanced calibration of raw emotion scores.
+        @internal
+
+        This method adjusts emotion scores based on:
+        - Predefined boosts and priorities for each emotion.
+        - Similarity to a temporally stable emotion, if available for the `face_id`.
+        - Temporal factors derived from previous average scores for the `face_id`.
+        - Penalties for emotions that are similar to the current dominant emotion but weaker.
+
+        @param emotion_scores A dictionary of raw emotion scores from DeepFace or regional analysis.
+        @param face_id Optional identifier for the face, used for temporal calibration.
+        @return A dictionary of calibrated emotion scores, capped at 100.0.
         """
         calibrated = {}
         
@@ -327,13 +383,17 @@ class EmotionAnalyzer:
         return calibrated
             
     def _update_temporal_scores(self, face_id, calibrated_scores, confidence, dominant_emotion):
-        """
-        Zamansal duygu skorlarını günceller
-        Args:
-            face_id: Yüz kimliği
-            calibrated_scores: Kalibre edilmiş duygu skorları
-            confidence: Genel güven skoru
-            dominant_emotion: Baskın duygu
+        """!
+        @brief Updates temporal emotion scores and history for a given face ID.
+        @internal
+
+        Maintains a moving average of calibrated scores for each emotion and
+        a history deque of recent emotion predictions for the specified `face_id`.
+
+        @param face_id The identifier for the face.
+        @param calibrated_scores A dictionary of the latest calibrated emotion scores.
+        @param confidence The overall confidence of the current dominant emotion.
+        @param dominant_emotion The current dominant emotion string.
         """
         if face_id is None:
             return
@@ -367,12 +427,19 @@ class EmotionAnalyzer:
         })
     
     def _get_stable_emotion(self, face_id):
-        """
-        Yüz için en kararlı duyguyu bulur
-        Args:
-            face_id: Yüz kimliği
-        Returns:
-            Kararlı duygu bilgisi (emotion, confidence, stability)
+        """!
+        @brief Determines the most stable emotion for a given face ID based on history.
+        @internal
+
+        Analyzes the emotion history for the `face_id`, giving more weight to recent
+        entries, to find the emotion that has appeared most consistently.
+
+        @param face_id The identifier for the face.
+        @return A dictionary `{"emotion": str, "confidence": float, "stability": float}`.
+                'emotion' is the most stable emotion.
+                'confidence' is the weighted average confidence of that emotion.
+                'stability' is a score (0.0 to 1.0) indicating the consistency of that emotion.
+                Returns a default neutral state if no history is found.
         """
         if face_id is None or face_id not in self.emotion_history:
             return {"emotion": "neutral", "confidence": 0.5, "stability": 0.0}
@@ -417,15 +484,23 @@ class EmotionAnalyzer:
         }
         
     def _advanced_emotion_stability(self, face_id, current_emotion, confidence, all_scores):
-        """
-        Gelişmiş duygu kararlılığı kontrolü
-        Args:
-            face_id: Yüz kimliği
-            current_emotion: Mevcut duygu
-            confidence: Mevcut güven skoru
-            all_scores: Tüm duygu skorları
-        Returns:
-            (nihai_duygu, nihai_güven) tuple
+        """!
+        @brief Applies advanced logic to determine the final, stable emotion.
+        @internal
+
+        This method considers:
+        - The current detected emotion and its confidence.
+        - The historically stable emotion and its stability score.
+        - The margin between the top two current emotion scores.
+        - Similarity between emotions to resolve conflicts or favor stable predictions.
+        It aims to prevent rapid flickering between related or uncertain emotions.
+
+        @param face_id The identifier for the face.
+        @param current_emotion The currently dominant emotion from calibrated scores.
+        @param confidence The confidence of the `current_emotion`.
+        @param all_scores A dictionary of all current calibrated emotion scores.
+        @return A tuple `(final_emotion_str, final_confidence_float)` representing the
+                determined stable emotion and its confidence.
         """
         if face_id is None:
             return current_emotion, confidence

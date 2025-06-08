@@ -1,4 +1,17 @@
 # -*- coding: utf-8 -*-
+"""!
+@file speech_server.py
+@brief Main launcher for the Speech Detection gRPC Service.
+
+This script initializes and starts the gRPC server for speech detection.
+It loads environment variables, sets up logging, configures paths for protobuf
+modules, and manages the server lifecycle including graceful shutdown.
+The server utilizes the SpeechDetectionServicer for handling analysis requests.
+
+Usage:
+    python speech_server.py
+    (Configuration is primarily via environment variables: HOST, PORT, MAX_WORKERS, LOG_LEVEL, LOG_FILE)
+"""
 import os
 import grpc
 import sys
@@ -31,7 +44,16 @@ logger = setup_logging(
 
 
 def serve():
-    """gRPC sunucusunu başlatır"""
+    """!
+    @brief Initializes and starts the gRPC server for speech detection.
+
+    This function retrieves server configuration from environment variables,
+    creates the gRPC server instance with specified options, adds the
+    SpeechDetectionServicer, starts the server, and then waits for
+    termination signals (like KeyboardInterrupt) for a graceful shutdown.
+    @exception Exception Logs any exception during server startup or execution
+                       and attempts to stop the server.
+    """
     # Sunucu parametrelerini environment variable'lardan al
     host = os.getenv('HOST', '0.0.0.0')
     port = os.getenv('PORT', '50053')

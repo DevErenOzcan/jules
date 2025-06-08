@@ -1,6 +1,10 @@
-"""
-Vision Service Ana Başlatıcı
-Bu dosya Vision Service'i başlatmak için kullanılır.
+"""!
+@file vision_server.py
+@brief Vision Service main launcher.
+
+This script is responsible for initializing and starting the Vision Service.
+It loads necessary configurations, sets up logging, and launches the gRPC server
+to handle incoming requests for vision analysis.
 """
 
 import sys
@@ -22,7 +26,14 @@ logger = setup_logger()
 
 
 def main():
-    """Ana başlatıcı fonksiyon"""
+    """!
+    @brief Main entry point for the Vision Service.
+
+    Initializes the logger and the gRPC server. It then starts the server
+    and waits for termination signals (like KeyboardInterrupt) for a graceful shutdown.
+    Any exceptions encountered during the startup or execution phase are logged.
+    @exception Exception Logs and re-raises any exception that occurs, ensuring issues are recorded.
+    """
     try:
         logger.info("Vision Service başlatılıyor...")
         server = GrpcServer()
