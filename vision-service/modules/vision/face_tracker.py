@@ -5,9 +5,10 @@ import time
 
 logger = logging.getLogger("vision-service")
 
+
 class FaceTracker:
     """Yüz takibi için sınıf"""
-    
+
     def __init__(self, similarity_threshold=0.4, cleanup_timeout=5.0):
         """
         FaceTracker sınıfını başlatır
@@ -17,13 +18,13 @@ class FaceTracker:
         """
         self.face_match_threshold = similarity_threshold
         self.face_cleanup_timeout = cleanup_timeout
-        
+
         self.face_database = {}
-        self.next_id = 0
+        self.next_id = 1
         self.last_seen = {}
-        
+
         logger.info("Yüz takip modülü başlatıldı")
-        
+
     def identify_face(self, face_encoding, current_time):
         """
         Yüz özniteliklerine göre mevcut bir ID bulur veya yeni ID atar
@@ -59,7 +60,7 @@ class FaceTracker:
         self.last_seen[best_match_id] = current_time
 
         return best_match_id
-        
+
     def clean_old_faces(self, current_time, callback=None):
         """
         Belirli bir süre görünmeyen yüzleri temizler
@@ -79,11 +80,11 @@ class FaceTracker:
                 del self.face_database[face_id]
             if face_id in self.last_seen:
                 del self.last_seen[face_id]
-                
+
             # Callback fonksiyonu varsa çağır
             if callback is not None:
                 callback(face_id)
-                
+
             logger.info(f"Yüz {face_id} artık görünmediği için temizlendi")
-                
+
         return ids_to_remove
