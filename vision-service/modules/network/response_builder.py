@@ -1,5 +1,10 @@
-"""
-gRPC response nesnelerini oluşturan modül
+"""!
+@file response_builder.py
+@brief Provides utility functions for creating gRPC message objects.
+
+This module defines the ResponseBuilder class, which contains static methods
+to construct `VisionResponse`, `DetectedFace`, and `FaceRequest` protobuf messages
+from processed data. This helps in centralizing the logic for response creation.
 """
 
 import proto.vision_pb2 as vision_pb2
@@ -10,18 +15,24 @@ logger = setup_logger()
 
 
 class ResponseBuilder:
-    """gRPC response nesnelerini oluşturan sınıf"""
+    """!
+    @brief Utility class for creating gRPC message objects.
+
+    This class provides static methods to construct various protobuf messages
+    used in the Vision Service, such as `VisionResponse`, `DetectedFace`,
+    and `FaceRequest`.
+    """
     
     @staticmethod
     def create_vision_response(processed_faces):
-        """
-        İşlenmiş yüz verilerinden VisionResponse oluşturur
+        """!
+        @brief Creates a VisionResponse protobuf message from processed face data.
         
-        Args:
-            processed_faces: İşlenmiş yüz verileri listesi
+        @param processed_faces A list of dictionaries, where each dictionary contains
+                               data for a single processed face (e.g., id, bbox, landmarks, image).
             
-        Returns:
-            vision_pb2.VisionResponse: gRPC response nesnesi
+        @return vision_pb2.VisionResponse: The constructed gRPC response message.
+                                         Returns a default VisionResponse(person_detected=False) on error.
         """
         try:
             # Ana yanıtı oluştur
@@ -47,14 +58,15 @@ class ResponseBuilder:
     
     @staticmethod
     def _create_detected_face(face_data):
-        """
-        Yüz verisinden DetectedFace nesnesi oluşturur
+        """!
+        @brief Creates a DetectedFace protobuf message from individual face data.
+        @internal
         
-        Args:
-            face_data: Yüz verisi dictionary'si
+        @param face_data A dictionary containing data for a single processed face,
+                         including 'id', 'x', 'y', 'width', 'height', 'landmarks', and 'face_image'.
             
-        Returns:
-            vision_pb2.DetectedFace: DetectedFace nesnesi
+        @return vision_pb2.DetectedFace: The constructed DetectedFace message.
+                                         Returns None if an error occurs during creation.
         """
         try:
             # DetectedFace nesnesini oluştur
@@ -83,14 +95,16 @@ class ResponseBuilder:
     
     @staticmethod
     def create_face_request(detected_face):
-        """
-        DetectedFace'den FaceRequest oluşturur
+        """!
+        @brief Creates a FaceRequest protobuf message from a DetectedFace message.
+
+        This is used to prepare data to be sent to other services like
+        Emotion Service or Speech Service.
         
-        Args:
-            detected_face: vision_pb2.DetectedFace nesnesi
+        @param detected_face A vision_pb2.DetectedFace protobuf message.
             
-        Returns:
-            vision_pb2.FaceRequest: FaceRequest nesnesi
+        @return vision_pb2.FaceRequest: The constructed FaceRequest message.
+                                       Returns None if an error occurs.
         """
         try:
             face_request = vision_pb2.FaceRequest(

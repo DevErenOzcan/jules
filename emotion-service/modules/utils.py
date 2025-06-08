@@ -5,16 +5,28 @@ import platform
 from datetime import datetime
 from typing import Dict, Any
 
+"""!
+@file utils.py
+@brief Provides utility functions for the Emotion Service.
+
+This module contains helper functions for logging configuration,
+path management, server address retrieval, and system information gathering.
+"""
+
 def configure_logging(log_file: str = "emotion_service.log", level: int = logging.INFO):
-    """
-    Loglama sistemi yapılandırması
+    """!
+    @brief Configures the logging system for the application.
     
-    Args:
-        log_file: Log dosyasının adı
-        level: Log seviyesi (logging.DEBUG, logging.INFO, vb.)
+    Sets up logging to both console (StreamHandler) and a timestamped file (FileHandler)
+    within a 'logs' directory. It also sets higher logging levels for noisy libraries
+    like deepface, matplotlib, and PIL to reduce log spam.
+
+    @param log_file The base name for the log file. A timestamp will be prepended.
+                    Defaults to "emotion_service.log".
+    @param level The minimum logging level for the application's main logger
+                 (e.g., logging.DEBUG, logging.INFO). Defaults to logging.INFO.
         
-    Returns:
-        logging.Logger: Yapılandırılmış logger nesnesi
+    @return logging.Logger: The configured root logger instance for "emotion-service".
     """
     # Log klasörü oluştur
     log_dir = "logs"
@@ -50,34 +62,45 @@ def configure_logging(log_file: str = "emotion_service.log", level: int = loggin
     return logger
 
 def configure_paths():
-    """
-    Proje için gerekli path'leri konfigüre eder
+    """!
+    @brief Configures Python import paths for the project.
+
+    Adds the 'proto' directory (located one level above the 'modules' directory)
+    and the current 'modules' directory to `sys.path` if they are not already present.
+    This ensures that protobuf-generated modules and other project modules can be imported.
     """
     # Dinamik proto klasörü ekle
-    sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'proto'))
+    # Assuming this file is in 'modules', so os.path.dirname(__file__) is 'modules' path
+    # Then os.path.dirname(os.path.dirname(__file__)) is the parent of 'modules'
+    proto_dir_parent = os.path.dirname(os.path.dirname(__file__))
+    proto_dir = os.path.join(proto_dir_parent, 'proto')
+    if proto_dir not in sys.path:
+        sys.path.append(proto_dir)
     
     # Projenin diğer modüllerini de ekle
-    module_dir = os.path.dirname(__file__)
+    module_dir = os.path.dirname(__file__) # This is the 'modules' directory itself
     if module_dir not in sys.path:
         sys.path.append(module_dir)
         
-def get_server_address():
-    """
-    Sunucu adresini döndürür
+def get_server_address() -> str:
+    """!
+    @brief Retrieves the server address from environment variables or defaults.
     
-    Returns:
-        str: host:port formatında sunucu adresi
+    Uses `HOST` and `PORT` environment variables.
+    Defaults to '0.0.0.0:50052' if variables are not set.
+
+    @return str: The server address in 'host:port' format.
     """
     port = os.getenv('PORT', '50052')
     host = os.getenv('HOST', '0.0.0.0')
     return f"{host}:{port}"
     
 def get_system_info() -> Dict[str, Any]:
-    """
-    Sistem bilgilerini toplar
+    """!
+    @brief Collects various system information.
     
-    Returns:
-        Dict[str, Any]: Sistem bilgilerini içeren sözlük
+    @return Dict[str, Any]: A dictionary containing details such as OS, OS version,
+                            Python version, processor, hostname, and current timestamp.
     """
     info = {
         'os': platform.system(),

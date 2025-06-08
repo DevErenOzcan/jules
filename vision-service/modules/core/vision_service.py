@@ -1,5 +1,11 @@
-"""
-Vision Service gRPC servis implementasyonu
+"""!
+@file vision_service.py
+@brief Implements the gRPC servicer for the Vision Service.
+
+This module defines the `VisionServiceServicer` class, which handles
+incoming gRPC requests for the Vision Service. It orchestrates the
+face detection, tracking, and feature analysis processes, and communicates
+with other backend services as needed.
 """
 
 import proto.vision_pb2 as vision_pb2
@@ -18,10 +24,23 @@ logger = setup_logger()
 
 
 class VisionServiceServicer(vision_pb2_grpc.VisionServiceServicer):
-    """Vision Service gRPC servis implementasyonu"""
-    
+    """!
+    @brief Vision Service gRPC servicer implementation.
+
+    This class implements the server-side logic for the VisionService gRPC interface.
+    It handles requests to analyze video frames, detects faces, and coordinates
+    further processing.
+    """
     def __init__(self):
-        """Vision Service sınıfını başlatır"""
+        """!
+        @brief Initializes the VisionServiceServicer.
+
+        Sets up configuration by loading application and gRPC settings.
+        Initializes the FaceDetector for identifying faces in frames,
+        FaceTracker for tracking faces across frames, FrameProcessor
+        for orchestrating detection and tracking, and ServiceClient for
+        communicating with other microservices.
+        """
         
         # Yapılandırma yöneticisini başlat
         self.app_config = ConfigManager()
@@ -48,8 +67,16 @@ class VisionServiceServicer(vision_pb2_grpc.VisionServiceServicer):
         logger.info("Vision Service başlatıldı")
 
     def AnalyzeFrame(self, request, context):
-        """
-        Bir görüntü karesini analiz eder ve tespit edilen yüzleri döner
+        """!
+        @brief Analyzes a single video frame for faces and other visual features.
+
+        Processes the provided image data from the request, performs face detection
+        and tracking, and then sends detected face information for further analysis
+        by other services.
+        @param request The incoming request object containing the image data (vision_pb2.VisionRequest).
+        @param context The gRPC context object for the request.
+        @return vision_pb2.VisionResponse containing detected faces and analysis results.
+        @note Logs errors and returns a default VisionResponse (person_detected=False) on processing failure.
         """
         try:
             # Frame'i işle
@@ -73,7 +100,14 @@ class VisionServiceServicer(vision_pb2_grpc.VisionServiceServicer):
             return vision_pb2.VisionResponse(person_detected=False)
         
     def _process_detected_face(self, detected_face):
-        """Tespit edilen yüzü Emotion Service ve Speech Detection Service'e gönderir"""
+        """!
+        @brief Processes a detected face by sending its information to other services (e.g., emotion, speech).
+        @internal This method is intended for internal use within the servicer.
+
+        Takes a `DetectedFace` object and forwards it to configured downstream
+        services (like emotion or speech services) for further processing.
+        @param detected_face A vision_pb2.DetectedFace object representing the detected face.
+        """
         
         # ResponseBuilder kullanarak FaceRequest oluştur
         face_request = ResponseBuilder.create_face_request(detected_face)

@@ -1,17 +1,16 @@
-"""
-Duygu Analizi Servisi
----------------------
-Bu modül, yüz görüntülerinden duygu analizi yapan bir gRPC servisi sağlar.
+"""!
+@file emotion_server.py
+@brief Main launcher for the Emotion Analysis gRPC Service.
 
-Modüler yapı:
-- modules/emotion_analyzer.py: Duygu analizi için ana sınıf
-- modules/service.py: gRPC servis implementasyonu
-- modules/utils.py: Yardımcı fonksiyonlar
+This script initializes and starts the gRPC server for emotion analysis.
+It handles command-line arguments for server configuration, sets up logging,
+configures paths, and manages graceful shutdown via signal handling.
+The server utilizes the EmotionServiceServicer for handling analysis requests.
 
-Kullanım:
-    python emotion_server.py [--port PORT] [--host HOST] [--workers WORKERS] [--confidence CONFIDENCE]
-    
-Örnek:
+Usage:
+    python emotion_server.py [--host HOST] [--port PORT] [--workers WORKERS] [--confidence CONFIDENCE]
+
+Example:
     python emotion_server.py --port 50052 --host 0.0.0.0 --workers 10 --confidence 0.35
 """
 import grpc
@@ -42,7 +41,11 @@ request_counter = 0
 request_counter_lock = threading.Lock()
 
 def signal_handler(sig, frame):
-    """Sinyal yakalayıcı - Ctrl+C için graceful shutdown"""
+    """!
+    @brief Handles termination signals for graceful shutdown.
+    @param sig The signal number.
+    @param frame The current stack frame.
+    """
     if server:
         logger.info("Sunucu kapatma sinyali alındı, servis sonlandırılıyor...")
         server.stop(5)  # 5 saniye içinde mevcut istekleri tamamla
@@ -50,14 +53,22 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 def increment_request_counter():
-    """İstek sayacını artırır"""
+    """!
+    @brief Increments the global request counter safely.
+    @return The new value of the request counter.
+    """
     global request_counter
     with request_counter_lock:
         request_counter += 1
         return request_counter
 
 def health_monitor(interval=60):
-    """Sunucu sağlık bilgilerini belirli aralıklarla loglar"""
+    """!
+    @brief Periodically logs server health information.
+
+    Logs uptime, total requests, and system information at specified intervals.
+    @param interval The logging interval in seconds. Defaults to 60.
+    """
     global start_time, request_counter
     
     while True:
@@ -78,7 +89,10 @@ def health_monitor(interval=60):
         time.sleep(interval)
 
 def parse_arguments():
-    """Komut satırı argümanlarını işler"""
+    """!
+    @brief Parses command-line arguments for server configuration.
+    @return An argparse.Namespace object containing the parsed arguments.
+    """
     parser = argparse.ArgumentParser(description="Duygu Analizi gRPC Servisi")
     parser.add_argument('--host', default='0.0.0.0', help='Sunucu host adresi')
     parser.add_argument('--port', type=int, default=50052, help='Sunucu port numarası')
@@ -87,7 +101,16 @@ def parse_arguments():
     return parser.parse_args()
 
 def serve(args=None):
-    """gRPC sunucusunu başlatır"""
+    """!
+    @brief Initializes and starts the gRPC server for emotion analysis.
+
+    This function sets up signal handlers, creates the gRPC server instance,
+    adds the EmotionServiceServicer, starts the server, and then waits for
+    termination signals. It also starts a background health monitoring thread.
+    @param args Optional argparse.Namespace object. If None, arguments are parsed from command line.
+    @exception Exception Logs and re-raises any exception during service startup or execution,
+                       leading to server stop and system exit.
+    """
     global server, start_time
     
     if args is None:
@@ -140,11 +163,14 @@ def serve(args=None):
         server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Klavye kesintisi alındı, servis kapatılıyor...")
-        server.stop(0)
+        server.stop(0) # Graceful stop with 0 wait time for keyboard interrupt
     except Exception as e:
         logger.error(f"Beklenmeyen bir hata oluştu: {str(e)}")
-        server.stop(0)
+        if server:
+            server.stop(0) # Ensure server is stopped
         sys.exit(1)
 
 if __name__ == "__main__":
+    # Note: The main execution block itself is not typically Doxygen documented
+    # as it's an entry point. The 'serve()' function it calls is documented.
     serve()

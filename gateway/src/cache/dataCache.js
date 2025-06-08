@@ -1,18 +1,44 @@
+/**
+ * @file dataCache.js
+ * @module DataCache
+ * @brief Manages an in-memory cache for face, emotion, and speech data.
+ *
+ * This module defines the DataCache class, which stores data received from
+ * backend services (Vision, Emotion, Speech). It provides methods to update
+ * and retrieve this data, and includes a mechanism for periodically cleaning up
+ * stale entries based on a timeout.
+ */
+
 const logger = require("../utils/logger");
 const config = require("../config");
 
+/**
+ * @class DataCache
+ * @brief Manages an in-memory cache for real-time data from various services.
+ *
+ * Stores data related to detected faces, their emotions, and speech status.
+ * Includes a cleanup mechanism to remove stale data.
+ */
 class DataCache {
+  /**
+   * @constructor
+   * @brief Initializes the DataCache.
+   * Sets up the internal data structure and prepares the cleanup timer (but does not start it).
+   */
   constructor() {
     this.data = {
-      faces: {},
-      emotions: {},
-      speechStatus: {},
-      lastUpdate: {},
+      faces: {},       // Stores face bounding box and image data
+      emotions: {},    // Stores emotion analysis results
+      speechStatus: {},// Stores speech detection results
+      lastUpdate: {},  // Stores timestamps of the last update for each faceId
     };
     this.cleanupTimer = null;
   }
 
-  // Önbellek temizleme işlemini başlat
+  /**
+   * @brief Starts the periodic cache cleanup timer.
+   * The interval and data timeout values are sourced from the application configuration.
+   */
   startCleanupTimer() {
     const cleanupInterval = config.cache.cleanupInterval || 10000;
     this.cleanupTimer = setInterval(() => this.cleanup(), cleanupInterval);
@@ -21,7 +47,11 @@ class DataCache {
     );
   }
 
-  // Eski verileri temizle
+  /**
+   * @brief Performs the cleanup of stale data from the cache.
+   * Iterates through `lastUpdate` timestamps and removes entries older than the configured timeout.
+   * @method cleanup
+   */
   cleanup() {
     const now = Date.now();
     const timeout = config.cache.dataTimeout || 10000;
@@ -33,7 +63,10 @@ class DataCache {
     }
   }
 
-  // Bir yüzü ve ilişkili verileri kaldır
+  /**
+   * @brief Removes a specific face and all its associated data from the cache.
+   * @param {string|number} faceId - The ID of the face to remove.
+   */
   removeFace(faceId) {
     delete this.data.faces[faceId];
     delete this.data.emotions[faceId];
@@ -42,7 +75,11 @@ class DataCache {
     logger.debug(`Yüz ID ${faceId} önbellekten temizlendi (timeout)`);
   }
 
-  // Vision verilerini güncelle
+  /**
+   * @brief Updates the cache with vision data (detected faces).
+   * @param {Array<Object>} faces - An array of face objects from the Vision Service.
+   * Each face object should contain `id`, `face_image`, `x`, `y`, `width`, `height`.
+   */
   updateVisionData(faces) {
     if (!faces) return;
 
@@ -52,7 +89,7 @@ class DataCache {
 
       this.data.faces[faceId] = {
         id: faceId,
-        face_image: face.face_image,
+        face_image: face.face_image, // This is raw bytes
         x: face.x,
         y: face.y,
         width: face.width,
@@ -63,7 +100,11 @@ class DataCache {
     });
   }
 
-  // Duygu verilerini güncelle
+  /**
+   * @brief Updates the cache with emotion data for a specific face.
+   * @param {Object} emotionResponse - The emotion response object from the Emotion Service.
+   * Expected to have `face_id`, `emotion`, and `confidence`.
+   */
   updateEmotionData(emotionResponse) {
     if (!emotionResponse) return;
 
@@ -81,7 +122,11 @@ class DataCache {
     );
   }
 
-  // Konuşma verilerini güncelle
+  /**
+   * @brief Updates the cache with speech data for a specific face.
+   * @param {Object} speechResponse - The speech response object from the Speech Service.
+   * Expected to have `face_id`, `is_speaking`, and `speaking_time`.
+   */
   updateSpeechData(speechResponse) {
     if (!speechResponse) return;
 
@@ -99,7 +144,16 @@ class DataCache {
     );
   }
 
-  // Tüm aktif yüzler için birleştirilmiş veri al
+  /**
+   * @brief Retrieves combined data for all currently active faces in the cache.
+   *
+   * For each face, it combines face data, emotion data (or defaults if not present),
+   * and speech data (or defaults if not present). Face images are converted to Base64 strings.
+   * @returns {Object} An object containing a `speakers` array. Each element in the
+   *                   `speakers` array represents a face and includes its `id`, `face_image` (Base64),
+   *                   `emotion`, `emotion_confidence`, `is_speaking`, and `speaking_time`.
+   *                   Returns `{ speakers: [] }` if no faces are active.
+   */
   getCombinedData() {
     const activeFaceIds = Object.keys(this.data.faces);
 
@@ -109,32 +163,24 @@ class DataCache {
 
     return {
       speakers: activeFaceIds.map((faceId) => {
-        // Yüz verisi
         const faceData = this.data.faces[faceId] || {};
-
-        // Duygu verisi
         const emotionData = this.data.emotions[faceId] || {
           emotion: "unknown",
           confidence: 0.0,
         };
-
-        // Konuşma verisi
         const speechData = this.data.speechStatus[faceId] || {
           is_speaking: false,
           speaking_time: 0.0,
         };
 
-        // face_image'i Base64'e dönüştür
         let base64FaceImage = null;
         if (faceData.face_image) {
           const buffer = Buffer.isBuffer(faceData.face_image)
             ? faceData.face_image
             : Buffer.from(faceData.face_image);
-
           base64FaceImage = buffer.toString("base64");
         }
 
-        // Birleştirilmiş konuşmacı verisi
         return {
           id: parseInt(faceId),
           face_image: base64FaceImage,
@@ -147,7 +193,9 @@ class DataCache {
     };
   }
 
-  // Temizleme zamanlayıcısını durdur
+  /**
+   * @brief Stops the periodic cache cleanup timer.
+   */
   stopCleanupTimer() {
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
@@ -157,4 +205,8 @@ class DataCache {
   }
 }
 
+/**
+ * Exports a singleton instance of the DataCache.
+ * @type {DataCache}
+ */
 module.exports = new DataCache();

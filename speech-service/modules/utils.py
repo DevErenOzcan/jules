@@ -1,5 +1,9 @@
-"""
-Utility functions for speech detection service
+"""!
+@file utils.py
+@brief Utility functions for the Speech Detection Service.
+
+This module provides helper functions for setting up logging,
+adding protobuf paths to sys.path, and checking for essential dependencies.
 """
 import logging
 import sys
@@ -7,13 +11,20 @@ import os
 from datetime import datetime
 
 def setup_logging(log_level='INFO', log_to_file=True, log_file='speech_service.log'):
-    """
-    Loglama yapılandırmasını ayarlar
+    """!
+    @brief Configures logging for the Speech Detection Service.
+
+    Sets up logging to both console (StreamHandler) and file(s).
+    If `log_to_file` is True, it logs to a daily timestamped file (e.g., YYYYMMDD_speech_service.log)
+    in a 'logs' directory (relative to the service root) and also to a general log file
+    (e.g., speech_service.log) in the service root directory.
+    It also sets the logging level for the 'grpc' logger to WARNING to reduce noise.
     
-    Args:
-        log_level (str): Loglama seviyesi (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_to_file (bool): Dosyaya log yazılıp yazılmayacağı
-        log_file (str): Log dosyası adı
+    @param log_level (str): The desired logging level string (e.g., "DEBUG", "INFO").
+                           Defaults to "INFO".
+    @param log_to_file (bool): Whether to enable file logging. Defaults to True.
+    @param log_file (str): The base name for the log files. Defaults to "speech_service.log".
+    @return logging.Logger: The configured logger instance for "speech-service".
     """
     # Log seviyesini ayarla
     numeric_level = getattr(logging, log_level.upper(), None)
@@ -53,19 +64,28 @@ def setup_logging(log_level='INFO', log_to_file=True, log_file='speech_service.l
     return logging.getLogger("speech-service")
 
 def add_proto_path():
+    """!
+    @brief Adds the 'proto' directory to `sys.path` for protobuf module imports.
+
+    The 'proto' directory is assumed to be located one level above the 'modules'
+    directory (where this utils.py file is expected to be).
     """
-    Proto dosyaları dizinini Python yoluna ekler
-    """
-    proto_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'proto')
+    # Assuming this file is in 'modules', os.path.dirname(__file__) is 'modules' path
+    # os.path.dirname(os.path.dirname(__file__)) is the parent of 'modules' (service root)
+    service_root_dir = os.path.dirname(os.path.dirname(__file__))
+    proto_dir = os.path.join(service_root_dir, 'proto')
     if proto_dir not in sys.path:
         sys.path.append(proto_dir)
         
 def check_dependencies():
-    """
-    Bağımlılıkları kontrol eder ve eksikse hata verir
+    """!
+    @brief Checks for essential Python package dependencies.
+
+    Currently checks for "numpy" and "grpc". If any are missing,
+    it prints an error message to stdout listing the missing dependencies
+    and a suggested pip install command.
     
-    Returns:
-        bool: Tüm bağımlılıklar yüklü ise True, değilse False
+    @return bool: True if all checked dependencies are found, False otherwise.
     """
     dependencies = ["numpy", "grpc"]
     missing = []

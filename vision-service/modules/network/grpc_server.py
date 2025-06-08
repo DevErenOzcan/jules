@@ -1,5 +1,10 @@
-"""
-gRPC sunucu yönetim modülü
+"""!
+@file grpc_server.py
+@brief Manages the gRPC server setup and lifecycle for the Vision Service.
+
+This module defines the `GrpcServer` class, which is responsible for
+configuring, creating, starting, and stopping the gRPC server that hosts
+the Vision Service.
 """
 
 import grpc
@@ -14,15 +19,32 @@ logger = setup_logger()
 
 
 class GrpcServer:
-    """gRPC sunucusunu yöneten sınıf"""
+    """!
+    @brief Class for managing the gRPC server.
+
+    This class encapsulates the logic for the gRPC server lifecycle,
+    including its creation, starting, stopping, and waiting for termination.
+    It uses configurations defined in `GrpcConfig`.
+    """
     
     def __init__(self):
-        """GrpcServer'ı başlatır"""
+        """!
+        @brief Initializes the GrpcServer.
+
+        Loads the gRPC configuration necessary for server setup.
+        """
         self.config = GrpcConfig()
         self.server = None
         
     def create_server(self):
-        """gRPC sunucusunu oluşturur"""
+        """!
+        @brief Creates the gRPC server instance.
+
+        Initializes the `grpc.server` with a thread pool, adds the
+        `VisionServiceServicer` to it, and binds the server to the
+        configured address and port.
+        @return True if server creation was successful, False otherwise.
+        """
         try:
             # gRPC sunucusunu oluştur
             self.server = grpc.server(
@@ -47,7 +69,12 @@ class GrpcServer:
             return False
     
     def start_server(self):
-        """gRPC sunucusunu başlatır"""
+        """!
+        @brief Starts the gRPC server.
+
+        Creates the server if it hasn't been created yet, then starts it.
+        @return True if server start was successful, False otherwise.
+        """
         try:
             if not self.server:
                 if not self.create_server():
@@ -62,20 +89,32 @@ class GrpcServer:
             return False
     
     def stop_server(self, grace_period=5):
-        """gRPC sunucusunu durdurur"""
+        """!
+        @brief Stops the gRPC server.
+
+        Allows ongoing RPCs to complete within the grace period before shutting down.
+        @param grace_period The time in seconds to wait for pending RPCs to complete.
+                            Defaults to 5 seconds.
+        @return True if the server was stopped successfully or was not running, False on error.
+        """
         try:
             if self.server:
                 self.server.stop(grace_period)
                 logger.info("gRPC sunucu durduruldu")
                 return True
-            return True
+            return True # Considered success if server was not running
             
         except Exception as e:
             logger.error(f"gRPC sunucu durdurma hatası: {str(e)}")
             return False
     
     def wait_for_termination(self):
-        """Sunucunun sonlanmasını bekler"""
+        """!
+        @brief Waits until the server is terminated.
+
+        Blocks execution until the server shuts down. Handles KeyboardInterrupt
+        for graceful shutdown.
+        """
         try:
             if self.server:
                 self.server.wait_for_termination()
@@ -87,7 +126,13 @@ class GrpcServer:
             logger.error(f"Sunucu bekleme hatası: {str(e)}")
     
     def serve(self):
-        """Sunucuyu başlatır ve çalışmasını bekler"""
+        """!
+        @brief Starts the server and waits for it to terminate.
+
+        This is a convenience method that calls `start_server()` and then
+        `wait_for_termination()`. It also ensures the server is stopped
+        in a finally block.
+        """
         if self.start_server():
             try:
                 self.wait_for_termination()

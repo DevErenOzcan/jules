@@ -6,31 +6,43 @@ from ..config.logger_config import setup_logger
 
 logger = setup_logger()
 
+"""!
+@file frame_processor.py
+@brief Provides the FrameProcessor class for processing video frames.
+
+This module defines the FrameProcessor class, which orchestrates the decoding
+of image data, face detection, landmark extraction, feature extraction,
+face tracking, and encoding of processed face images.
+"""
 
 class FrameProcessor:
-    """Görüntü karelerini işlemek için kullanılan sınıf"""
+    """!
+    @brief Class for processing individual video frames.
+
+    This class uses a FaceDetector and a FaceTracker to identify and process
+    faces within a given video frame. It handles decoding of the input image,
+    extracting face regions, and encoding processed face data.
+    """
     
     def __init__(self, face_detector, face_tracker):
-        """
-        Frame işleyicisini başlatır
+        """!
+        @brief Initializes the FrameProcessor.
         
-        Args:
-            face_detector: Yüz tespit modülü
-            face_tracker: Yüz takip modülü
+        @param face_detector An instance of FaceDetector for face and landmark detection.
+        @param face_tracker An instance of FaceTracker for identifying and tracking faces.
         """
         self.face_detector = face_detector
         self.face_tracker = face_tracker
         logger.info("Frame işleyici başlatıldı")
     
     def decode_frame(self, image_data):
-        """
-        Frame verisini numpy array'e çevirir
+        """!
+        @brief Decodes image data into an OpenCV image (NumPy array).
         
-        Args:
-            image_data: Binary görüntü verisi
+        @param image_data Binary image data (e.g., from a JPEG or PNG file).
             
-        Returns:
-            tuple: (img, success) - Decode edilmiş görüntü ve başarı durumu
+        @return tuple: (img, success) - The decoded OpenCV image (BGR format)
+                      and a boolean indicating success. Returns (None, False) on failure.
         """
         try:
             nparr = np.frombuffer(image_data, np.uint8)
@@ -46,28 +58,25 @@ class FrameProcessor:
             return None, False
     
     def extract_face_region(self, img, face_coords):
-        """
-        Yüz bölgesini görüntüden keser
+        """!
+        @brief Extracts a region of interest (face) from an image.
         
-        Args:
-            img: Ana görüntü
-            face_coords: (x, y, w, h) yüz koordinatları
+        @param img The source OpenCV image.
+        @param face_coords A tuple (x, y, w, h) representing the bounding box of the face.
             
-        Returns:
-            numpy.ndarray: Kesilmiş yüz görüntüsü
+        @return numpy.ndarray: The cropped face image.
         """
         x, y, w, h = face_coords
         return img[y:y+h, x:x+w].copy()
     
     def encode_face_image(self, face_img):
-        """
-        Yüz görüntüsünü encode eder
+        """!
+        @brief Encodes a face image into JPEG format.
         
-        Args:
-            face_img: Yüz görüntüsü
+        @param face_img The OpenCV image of the face.
             
-        Returns:
-            tuple: (encoded_data, success) - Encode edilmiş veri ve başarı durumu
+        @return tuple: (encoded_data, success) - The JPEG encoded image data (bytes)
+                      and a boolean indicating success. Returns (None, False) on failure.
         """
         try:
             is_success, encoded_img = cv2.imencode('.jpg', face_img)
@@ -81,14 +90,17 @@ class FrameProcessor:
             return None, False
     
     def process_frame(self, image_data):
-        """
-        Bir görüntü karesini tam olarak işler
+        """!
+        @brief Processes a complete video frame.
+
+        This method decodes the image, detects faces, processes each detected face
+        (extracts landmarks, features, assigns ID), and cleans up old tracked faces.
         
-        Args:
-            image_data: Binary görüntü verisi
+        @param image_data Binary image data for the frame.
             
-        Returns:
-            tuple: (processed_faces, success) - İşlenmiş yüzler listesi ve başarı durumu
+        @return tuple: (processed_faces, success) - A list of dictionaries, where each
+                      dictionary contains data for a processed face, and a boolean
+                      indicating overall success. Returns ([], False) on major failure.
         """
         # Frame'i decode et
         img, decode_success = self.decode_frame(image_data)
@@ -123,17 +135,20 @@ class FrameProcessor:
             return [], False
     
     def _process_single_face(self, img, gray, face_coords, current_time):
-        """
-        Tek bir yüzü işler
+        """!
+        @brief Processes a single detected face within a frame.
+        @internal
+
+        This method extracts landmarks, features, identifies the face using the
+        face tracker, crops the face image, and encodes it.
         
-        Args:
-            img: Ana görüntü
-            gray: Gri tonlamalı görüntü
-            face_coords: (x, y, w, h) yüz koordinatları
-            current_time: Mevcut zaman
+        @param img The full color OpenCV image of the frame.
+        @param gray The grayscale OpenCV image of the frame.
+        @param face_coords A tuple (x, y, w, h) for the detected face's bounding box.
+        @param current_time The current timestamp.
             
-        Returns:
-            dict: İşlenmiş yüz verisi
+        @return dict: A dictionary containing the processed face data including ID,
+                      bounding box, landmarks, and the encoded face image. Returns None on error.
         """
         x, y, w, h = face_coords
         

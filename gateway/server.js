@@ -1,3 +1,17 @@
+/**
+ * @file server.js
+ * @module GatewayServer
+ * @brief Main entry point for the WebSocket Gateway server.
+ *
+ * This script sets up a WebSocket server that acts as a gateway between a web frontend
+ * and backend gRPC services (Vision, Emotion, Speech). It receives video frames from
+ * the frontend, forwards them to the Vision service, and then relays face data
+ * to Emotion and Speech services. It aggregates responses from these services
+ * and sends combined data back to the connected WebSocket clients.
+ * It also includes a simple in-memory data cache for detected faces and their
+ * associated analysis results, with a periodic cleanup mechanism.
+ */
+
 const WebSocket = require("ws");
 const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
@@ -64,6 +78,13 @@ const dataCache = {
 const cleanupInterval = 10000; // 10 saniye
 let cleanupTimer = null;
 
+/**
+ * @brief Starts a timer to periodically clean up stale data from the cache.
+ *
+ * Data for a face ID is considered stale if its `lastUpdate` timestamp
+ * is older than the `cleanupInterval` (10 seconds).
+ * @function startCacheCleanupTimer
+ */
 function startCacheCleanupTimer() {
   cleanupTimer = setInterval(() => {
     const now = Date.now();
@@ -202,7 +223,15 @@ wss.on("connection", (ws, req) => {
   });
 });
 
-// Vision Service'den gelen veriyi işle
+/**
+ * @brief Processes the response from the Vision Service.
+ *
+ * Updates the `dataCache` with face data (ID, image, bounding box) and
+ * sets the `lastUpdate` timestamp for each detected face.
+ * @function processVisionResponse
+ * @param {Object} visionResponse - The response object from VisionService.AnalyzeFrame.
+ * Expected to have a `faces` array.
+ */
 function processVisionResponse(visionResponse) {
   if (!visionResponse || !visionResponse.faces) return;
   
@@ -215,7 +244,7 @@ function processVisionResponse(visionResponse) {
     // Yüz verisini önbelleğe ekle
     dataCache.faces[faceId] = {
       id: faceId,
-      face_image: face.face_image,
+      face_image: face.face_image, // This is raw bytes, will be base64 encoded before sending to client
       x: face.x,
       y: face.y,
       width: face.width,
@@ -227,7 +256,15 @@ function processVisionResponse(visionResponse) {
   });
 }
 
-// Emotion Service'den gelen yanıtları işleyecek fonksiyon
+/**
+ * @brief Processes the response from the Emotion Service.
+ *
+ * Updates the `dataCache` with emotion data (emotion string, confidence)
+ * for the given face ID and sets the `lastUpdate` timestamp.
+ * @function processEmotionResponse
+ * @param {Object} emotionResponse - The response object from EmotionService.AnalyzeEmotion.
+ * Expected to have `face_id`, `emotion`, and `confidence`.
+ */
 function processEmotionResponse(emotionResponse) {
   if (!emotionResponse) return;
   
@@ -246,7 +283,15 @@ function processEmotionResponse(emotionResponse) {
   logger.debug(`Duygu analizi güncellendi - Yüz ID: ${faceId}, Duygu: ${emotionResponse.emotion}`);
 }
 
-// Speech Service'den gelen yanıtları işleyecek fonksiyon
+/**
+ * @brief Processes the response from the Speech Detection Service.
+ *
+ * Updates the `dataCache` with speech status (is_speaking, speaking_time)
+ * for the given face ID and sets the `lastUpdate` timestamp.
+ * @function processSpeechResponse
+ * @param {Object} speechResponse - The response object from SpeechDetectionService.DetectSpeech.
+ * Expected to have `face_id`, `is_speaking`, and `speaking_time`.
+ */
 function processSpeechResponse(speechResponse) {
   if (!speechResponse) return;
   
@@ -265,13 +310,27 @@ function processSpeechResponse(speechResponse) {
   logger.debug(`Konuşma durumu güncellendi - Yüz ID: ${faceId}, Konuşuyor: ${speechResponse.is_speaking}`);
 }
 
-// Birleştirilmiş veriyi istemciye gönder
+/**
+ * @brief Combines data from the cache for all active faces and sends it to a WebSocket client.
+ *
+ * For each active face ID in `dataCache.faces`, it retrieves corresponding face,
+ * emotion, and speech data. If face_image exists, it's converted to Base64.
+ * The combined data is then sent as a JSON string to the provided WebSocket client.
+ * @function sendCombinedData
+ * @param {WebSocket} ws - The WebSocket client instance to send data to.
+ */
 function sendCombinedData(ws) {
   // Aktif yüz kimlikleri
   const activeFaceIds = Object.keys(dataCache.faces);
   
   if (activeFaceIds.length === 0) {
-    return; // Veri yoksa gönderme
+    // If no active faces, send an empty speakers array to clear client-side display
+    try {
+      ws.send(JSON.stringify({ speakers: [] }));
+    } catch (err) {
+      logger.error(`WebSocket veri gönderme hatası (empty speakers): ${err.message}`);
+    }
+    return;
   }
   
   // Birleştirilmiş veriyi hazırla
@@ -327,6 +386,8 @@ function sendCombinedData(ws) {
 function setupEmotionServiceListener() {
   // Speech ve Emotion servisleriyle doğrudan iletişim kurmuyoruz,
   // çünkü Vision Service onlara veri gönderiyor. Bu işleve ihtiyaç yok şu an için.
+  // This function appears to be a placeholder or for a deprecated feature.
+  // It's kept for completeness but doesn't perform active operations.
   logger.info("Gateway üç servis arasındaki iletişime aracılık ediyor");
 }
 

@@ -5,16 +5,33 @@ import time
 
 logger = logging.getLogger("vision-service")
 
+"""!
+@file face_tracker.py
+@brief Provides the FaceTracker class for identifying and tracking faces over time.
+
+This module contains the FaceTracker class, which assigns unique IDs to detected
+faces based on their feature encodings. It maintains a database of known faces
+and can clean up old entries that haven't been seen for a specified timeout.
+"""
 
 class FaceTracker:
-    """Yüz takibi için sınıf"""
+    """!
+    @brief Class for tracking faces using feature encodings.
+
+    This class manages a database of face encodings and assigns an ID to each
+    unique face. It uses cosine similarity to compare new face encodings with
+    stored ones. Faces that are not seen for a certain period are removed
+    from the database.
+    """
 
     def __init__(self, similarity_threshold=0.4, cleanup_timeout=5.0):
-        """
-        FaceTracker sınıfını başlatır
-        Args:
-            similarity_threshold: Yüz eşleşme için benzerlik eşiği
-            cleanup_timeout: Yüz temizliği için zaman aşımı (sn)
+        """!
+        @brief Initializes the FaceTracker.
+
+        @param similarity_threshold The minimum cosine similarity score to consider
+                                   a face as a match to an existing one. Defaults to 0.4.
+        @param cleanup_timeout The time in seconds after which an unseen face is
+                               removed from the database. Defaults to 5.0.
         """
         self.face_match_threshold = similarity_threshold
         self.face_cleanup_timeout = cleanup_timeout
@@ -26,13 +43,17 @@ class FaceTracker:
         logger.info("Yüz takip modülü başlatıldı")
 
     def identify_face(self, face_encoding, current_time):
-        """
-        Yüz özniteliklerine göre mevcut bir ID bulur veya yeni ID atar
-        Args:
-            face_encoding: Yüz öznitelikleri
-            current_time: Mevcut zaman
-        Returns:
-            Yüz ID'si (int)
+        """!
+        @brief Identifies a face based on its encoding or assigns a new ID.
+
+        Compares the given face encoding with the stored encodings in the database.
+        If a match above the similarity threshold is found, the existing ID is returned
+        and the stored encoding is updated using a moving average. Otherwise, a new
+        ID is assigned, and the encoding is added to the database.
+
+        @param face_encoding The feature vector (NumPy array) of the detected face.
+        @param current_time The current timestamp (e.g., `time.time()`).
+        @return The integer ID assigned to the face.
         """
         best_match_id = None
         best_match_score = -1
@@ -62,13 +83,17 @@ class FaceTracker:
         return best_match_id
 
     def clean_old_faces(self, current_time, callback=None):
-        """
-        Belirli bir süre görünmeyen yüzleri temizler
-        Args:
-            current_time: Mevcut zaman
-            callback: Yüz silindiğinde çağrılacak fonksiyon (face_id)
-        Returns:
-            Silinen yüz ID'lerinin listesi
+        """!
+        @brief Removes faces from the database that haven't been seen for a while.
+
+        Iterates through the tracked faces and removes any face whose last seen time
+        exceeds the `cleanup_timeout`. An optional callback can be invoked for each
+        removed face.
+
+        @param current_time The current timestamp (e.g., `time.time()`).
+        @param callback An optional function to call when a face is removed.
+                        It will be called with the face_id as an argument.
+        @return A list of IDs of the faces that were removed.
         """
         ids_to_remove = []
         for face_id, last_time in self.last_seen.items():

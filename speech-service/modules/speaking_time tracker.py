@@ -1,6 +1,10 @@
-"""
-Speaking Time Tracker - Konuşma süresi hesaplama modülü
-Her kişi için konuşma sürelerini takip eder ve hesaplar
+"""!
+@file speaking_time tracker.py
+@brief Tracks and calculates speaking times for different face IDs.
+
+This module defines the SpeakingTimeTracker class, which monitors when
+each identified face (via face_id) starts and stops speaking. It accumulates
+total speaking time and can manage session timeouts for inactive faces.
 """
 import time
 import logging
@@ -11,14 +15,21 @@ logger = logging.getLogger("speaking-time-tracker")
 
 
 class SpeakingTimeTracker:
-    """Konuşma sürelerini takip eden sınıf"""
+    """!
+    @brief Tracks speaking duration for multiple individuals identified by face_id.
+
+    This class maintains a record for each face_id, tracking whether they are
+    currently speaking, the start time of their current speaking session,
+    their total accumulated speaking time, and the time of their last activity.
+    It can also clean up data for faces that have been inactive beyond a specified timeout.
+    """
 
     def __init__(self, session_timeout: float = 300.0):
-        """
-        Speaking Time Tracker'ı başlatır
+        """!
+        @brief Initializes the SpeakingTimeTracker.
 
-        Args:
-            session_timeout: Oturum zaman aşımı (saniye) - bu süre sonra veriler temizlenir
+        @param session_timeout The duration in seconds after which an inactive face's
+                               data will be cleaned up. Defaults to 300.0 (5 minutes).
         """
         self.session_timeout = session_timeout
 
@@ -35,15 +46,18 @@ class SpeakingTimeTracker:
         logger.info("Speaking Time Tracker başlatıldı")
 
     def update_speaking_status(self, face_id: int, is_speaking: bool) -> float:
-        """
-        Bir kişinin konuşma durumunu günceller ve toplam konuşma süresini döndürür
+        """!
+        @brief Updates the speaking status for a given face_id and returns total speaking time.
 
-        Args:
-            face_id: Kişi ID'si
-            is_speaking: Şu anda konuşuyor mu?
+        If the status changes from not speaking to speaking, a new session starts.
+        If the status changes from speaking to not speaking, the current session ends,
+        and its duration is added to the total speaking time.
+        The last activity time for the face_id is always updated.
 
-        Returns:
-            float: Toplam konuşma süresi (saniye)
+        @param face_id The unique identifier for the face.
+        @param is_speaking A boolean indicating whether the person is currently speaking.
+
+        @return float: The total accumulated speaking time for the given face_id in seconds.
         """
         current_time = time.time()
         session = self.speaking_sessions[face_id]
@@ -82,14 +96,15 @@ class SpeakingTimeTracker:
         return self.get_total_speaking_time(face_id)
 
     def get_total_speaking_time(self, face_id: int) -> float:
-        """
-        Bir kişinin toplam konuşma süresini döndürür
+        """!
+        @brief Returns the total accumulated speaking time for a specific face_id.
 
-        Args:
-            face_id: Kişi ID'si
+        If the person is currently speaking, the duration of the ongoing session
+        is included in the returned total.
 
-        Returns:
-            float: Toplam konuşma süresi (saniye)
+        @param face_id The unique identifier for the face.
+
+        @return float: The total speaking time in seconds.
         """
         session = self.speaking_sessions[face_id]
         total_time = session['total_speaking_time']
@@ -102,14 +117,15 @@ class SpeakingTimeTracker:
         return total_time
 
     def get_current_session_time(self, face_id: int) -> float:
-        """
-        Mevcut konuşma oturumunun süresini döndürür
+        """!
+        @brief Returns the duration of the current speaking session for a face_id.
 
-        Args:
-            face_id: Kişi ID'si
+        If the person is not currently speaking, returns 0.0.
 
-        Returns:
-            float: Mevcut oturum süresi (saniye)
+        @param face_id The unique identifier for the face.
+
+        @return float: The duration of the current speaking session in seconds,
+                       or 0.0 if not currently speaking.
         """
         session = self.speaking_sessions[face_id]
 
@@ -119,14 +135,16 @@ class SpeakingTimeTracker:
         return 0.0
 
     def get_speaking_stats(self, face_id: int) -> Dict:
-        """
-        Bir kişinin detaylı konuşma istatistiklerini döndürür
+        """!
+        @brief Retrieves detailed speaking statistics for a specific face_id.
 
-        Args:
-            face_id: Kişi ID'si
+        @param face_id The unique identifier for the face.
 
-        Returns:
-            dict: Konuşma istatistikleri
+        @return Dict: A dictionary containing:
+                      'face_id', 'is_currently_speaking' (bool),
+                      'total_speaking_time' (float), 'current_session_time' (float),
+                      'session_count' (int), 'last_activity' (timestamp),
+                      'time_since_last_activity' (float).
         """
         session = self.speaking_sessions[face_id]
         current_time = time.time()
@@ -144,23 +162,20 @@ class SpeakingTimeTracker:
         return stats
 
     def is_currently_speaking(self, face_id: int) -> bool:
-        """
-        Kişinin şu anda konuşup konuşmadığını döndürür
+        """!
+        @brief Checks if a person is currently marked as speaking.
 
-        Args:
-            face_id: Kişi ID'si
+        @param face_id The unique identifier for the face.
 
-        Returns:
-            bool: Şu anda konuşuyor mu?
+        @return bool: True if the person is currently speaking, False otherwise.
         """
         return self.speaking_sessions[face_id]['is_currently_speaking']
 
     def clear_face_data(self, face_id: int):
-        """
-        Belirli bir kişinin verilerini temizler
+        """!
+        @brief Clears all tracking data associated with a specific face_id.
 
-        Args:
-            face_id: Temizlenecek kişi ID'si
+        @param face_id The unique identifier for the face whose data is to be cleared.
         """
         if face_id in self.speaking_sessions:
             stats = self.get_speaking_stats(face_id)
@@ -168,11 +183,13 @@ class SpeakingTimeTracker:
             del self.speaking_sessions[face_id]
 
     def cleanup_inactive_faces(self) -> int:
-        """
-        Uzun süre aktif olmayan yüzlerin verilerini temizler
+        """!
+        @brief Removes data for faces that have been inactive longer than the session_timeout.
 
-        Returns:
-            int: Temizlenen yüz sayısı
+        Iterates through all tracked faces and removes those whose 'last_activity'
+        timestamp is older than the configured `session_timeout`.
+
+        @return int: The number of faces whose data was cleaned up.
         """
         current_time = time.time()
         faces_to_remove = []
@@ -191,22 +208,25 @@ class SpeakingTimeTracker:
 
         return len(faces_to_remove)
 
-    def get_all_stats(self) -> Dict:
-        """
-        Tüm yüzlerin istatistiklerini döndürür
+    def get_all_stats(self) -> Dict[int, Dict]:
+        """!
+        @brief Retrieves speaking statistics for all tracked faces.
 
-        Returns:
-            dict: Tüm yüzlerin istatistikleri
+        @return Dict[int, Dict]: A dictionary where keys are face_ids and values are
+                                 their respective statistics dictionaries (as returned by
+                                 `get_speaking_stats`).
         """
         all_stats = {}
-        for face_id in self.speaking_sessions.keys():
+        for face_id in list(self.speaking_sessions.keys()): # Use list for safe iteration if clear_face_data can be called
             all_stats[face_id] = self.get_speaking_stats(face_id)
 
         return all_stats
 
     def reset_all_data(self):
-        """
-        Tüm konuşma verilerini sıfırlar
+        """!
+        @brief Resets all tracking data for all faces.
+
+        Clears all stored speaking sessions and logs the action.
         """
         face_count = len(self.speaking_sessions)
         self.speaking_sessions.clear()

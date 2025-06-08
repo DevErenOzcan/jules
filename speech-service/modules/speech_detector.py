@@ -8,19 +8,56 @@ import logging
 
 logger = logging.getLogger("speech-detector")
 
+"""!
+@file speech_detector.py
+@brief Defines the SpeechDetector class for detecting speech from facial landmarks.
+
+This module contains the SpeechDetector class, which analyzes sequences of
+facial landmarks, particularly mouth movements, to determine if a person is speaking.
+It employs dynamic thresholding, calibration, and state management with cooldowns
+to provide a sensitive and responsive speech detection mechanism.
+"""
+
 class SpeechDetector:
+    """!
+    @brief Detects speech by analyzing facial landmark movements, focusing on the mouth.
+
+    This class processes sequences of facial landmarks to determine if a person
+    is speaking. Key features include:
+    - Extraction of mouth features (width, height, aspect ratio).
+    - Dynamic threshold calibration per face ID based on initial mouth movements.
+    - Analysis of movement variance in mouth features.
+    - State management (speaking/not speaking) with cooldowns to prevent rapid flickering.
+    - Blending of base and dynamic thresholds.
+    """
     def __init__(
         self,
-        base_threshold: float = 0.08,           # daha düşük eşik
+        base_threshold: float = 0.08,
         history_size: int = 8,
-        cooldown_frames: int = 1,               # tek karede geçiş
+        cooldown_frames: int = 1,
         max_silence_frames: int = 10,
-        calibration_frames: int = 10,           # hızlı kalibrasyon
-        alpha: float = 1.0,                     # dinamik eşik standart sapma çarpanı
-        blend_factor: float = 0.8,              # %80 dinamik eşiğe ağırlık
-        min_opening_threshold: float = 0.1,     # %10 oran eşik
-        smooth_window: int = 1,                 # anlık tepki için pencere=1
+        calibration_frames: int = 10,
+        alpha: float = 1.0,
+        blend_factor: float = 0.8,
+        min_opening_threshold: float = 0.1,
+        smooth_window: int = 1,
     ):
+        """!
+        @brief Initializes the SpeechDetector.
+
+        @param base_threshold Fallback threshold for movement detection if dynamic thresholding is not yet active.
+        @param history_size The number of recent mouth feature sets to store per face ID for analysis.
+        @param cooldown_frames Number of frames with movement required to transition to speaking,
+                               or frames with no movement to transition to not-speaking.
+        @param max_silence_frames Maximum number of consecutive frames without movement before forcing
+                                  a transition to not-speaking, even if cooldown_frames is not met.
+        @param calibration_frames Number of initial frames used to calibrate the dynamic threshold for each face ID.
+        @param alpha Multiplier for standard deviation in dynamic threshold calculation (mu + alpha * sigma).
+        @param blend_factor Factor to blend base_threshold and dynamic_threshold (0.0 = all base, 1.0 = all dynamic).
+        @param min_opening_threshold Minimum average mouth aspect ratio required to be considered speaking,
+                                     acting as a secondary check.
+        @param smooth_window Size of the smoothing window for movement analysis (currently set to 1 for an instant response).
+        """
         self.base_threshold = base_threshold
         self.history_size = history_size
         self.cooldown_frames = cooldown_frames
@@ -49,19 +86,43 @@ class SpeechDetector:
 
         logger.info("SpeechDetector (çok hassas) başlatıldı")
 
-    def _extract_mouth_features(self, landmarks):
-        if not landmarks or len(landmarks) < 136:
+    def _extract_mouth_features(self, landmarks: list) -> dict or None:
+        """!
+        @brief Extracts mouth features (width, height, aspect ratio) from facial landmarks.
+        @internal
+
+        Assumes landmarks are provided as a flat list [x1, y1, x2, y2, ...].
+        Specifically uses landmarks 48-67 (0-indexed) for mouth region.
+
+        @param landmarks A flat list of landmark coordinates.
+        @return A dictionary `{'width': float, 'height': float, 'ratio': float}`
+                or None if landmarks are insufficient.
+        """
+        if not landmarks or len(landmarks) < 136: # Expecting 68 landmarks * 2 coordinates
             return None
-        pts = np.array([[landmarks[i*2], landmarks[i*2+1]] for i in range(48,68)])
+        # Mouth landmarks are typically 48-67 (0-indexed for a 68-point model)
+        # Convert flat list to list of (x,y) points for mouth
+        pts = np.array([[landmarks[i*2], landmarks[i*2+1]] for i in range(48, 68)])
         w = np.linalg.norm(pts[6] - pts[0])
         top = np.mean(pts[13:16], axis=0)
         bot = np.mean(pts[16:20], axis=0)
         h = np.linalg.norm(top - bot)
         return {'width': w, 'height': h, 'ratio': h/(w+1e-6)}
 
-    def detect_speaking(self, face_id, landmarks):
+    def detect_speaking(self, face_id: any, landmarks: list) -> bool:
+        """!
+        @brief Detects if a person is speaking based on their facial landmarks.
+
+        This is the main public method for speech detection. It processes landmarks,
+        performs calibration if needed, analyzes movement, and updates the speaking state.
+
+        @param face_id The unique identifier for the face.
+        @param landmarks A flat list of facial landmark coordinates.
+        @return True if the person is determined to be speaking, False otherwise.
+        """
         feats = self._extract_mouth_features(landmarks)
         if feats is None:
+            logger.warning(f"Face{face_id}: Could not extract mouth features, insufficient landmarks.")
             return False
 
         # 1) Kalibrasyon
@@ -87,8 +148,21 @@ class SpeechDetector:
         self._update_state(face_id, moving)
         return self.speaking_states[face_id]
 
-    def _analyze_movement(self, face_id):
-        recent = list(self.mouth_history[face_id])[-5:]
+    def _analyze_movement(self, face_id: any) -> bool:
+        """!
+        @brief Analyzes mouth movement based on historical feature data.
+        @internal
+
+        Calculates variances of mouth height, aspect ratio, and width from recent history.
+        Compares a smoothed movement score against a blended dynamic/base threshold.
+        Also checks if the average mouth opening ratio exceeds a minimum threshold.
+
+        @param face_id The unique identifier for the face.
+        @return True if significant movement indicative of speech is detected, False otherwise.
+        """
+        recent = list(self.mouth_history[face_id])[-5:] # Analyze last 5 frames of features
+        if not recent:
+            return False
         heights = [f['height'] for f in recent]
         vars_h = np.var(heights) if len(heights)>1 else 0
         ratios = [f['ratio'] for f in recent]
@@ -119,7 +193,17 @@ class SpeechDetector:
         logger.debug(f"Face{face_id}: smooth={smooth:.4f}, thr={thr:.4f}, moving={moving}")
         return moving
 
-    def _update_state(self, face_id, move):
+    def _update_state(self, face_id: any, move: bool):
+        """!
+        @brief Updates the speaking state (speaking/not speaking) for a face ID.
+        @internal
+
+        Manages transitions between speaking and not-speaking states based on
+        detected movement (`move`), cooldown counters, and silence counters.
+
+        @param face_id The unique identifier for the face.
+        @param move Boolean indicating if significant movement was detected in the current frame.
+        """
         curr = self.speaking_states[face_id]
         if move:
             self.silence_counters[face_id] = 0
@@ -144,10 +228,25 @@ class SpeechDetector:
             else:
                 self.cooldown_counters[face_id] = 0
 
-    def is_speaking(self, face_id):
+    def is_speaking(self, face_id: any) -> bool:
+        """!
+        @brief Returns the current speaking state for a given face ID.
+
+        @param face_id The unique identifier for the face.
+        @return True if the person is currently considered speaking, False otherwise.
+                 Defaults to False if the face_id is unknown.
+        """
         return self.speaking_states.get(face_id, False)
 
-    def get_stats(self, face_id):
+    def get_stats(self, face_id: any) -> dict:
+        """!
+        @brief Retrieves debugging statistics for a specific face ID.
+
+        @param face_id The unique identifier for the face.
+        @return A dictionary containing current state information:
+                'speaking' (bool), 'frame_count' (int in history),
+                'cooldown' (int), 'silence' (int), 'threshold' (float).
+        """
         history = self.mouth_history.get(face_id, [])
         thr = self.dynamic_threshold.get(face_id, self.base_threshold)
         return {
@@ -158,11 +257,33 @@ class SpeechDetector:
             'threshold': thr
         }
 
+    def clear_face(self, face_id: any):
+        """!
+        @brief Clears all data associated with a specific face ID.
+        @param face_id The identifier of the face to clear.
+        """
+        keys_to_clear_from = [
+            self.mouth_history, self.speaking_states, self.cooldown_counters,
+            self.silence_counters, self.movement_history,
+            self.calib_history, self.calib_counts, self.dynamic_threshold
+        ]
+        for store in keys_to_clear_from:
+            if face_id in store:
+                del store[face_id]
+        logger.info(f"Face{face_id} verileri temizlendi (SpeechDetector).")
+
+
     def clear_all(self):
+        """!
+        @brief Clears all stored data for all face IDs.
+
+        Resets all internal dictionaries tracking mouth history, speaking states,
+        cooldowns, silence counters, movement history, calibration data, and dynamic thresholds.
+        """
         for d in (
             self.mouth_history, self.speaking_states, self.cooldown_counters,
             self.silence_counters, self.movement_history,
             self.calib_history, self.calib_counts, self.dynamic_threshold
         ):
             d.clear()
-        logger.info("Tüm veriler temizlendi")
+        logger.info("Tüm veriler temizlendi (SpeechDetector)")
