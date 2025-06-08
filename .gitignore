@@ -79,3 +79,6 @@ dist-ssr
 # Temporary files
 tmp/
 temp/
+
+# Doxygen output
+doxygen_output/
